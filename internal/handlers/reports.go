@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/healthops/reporting-service/internal/export"
+	"github.com/healthops/reporting-service/internal/middleware"
 	"github.com/healthops/reporting-service/internal/reports"
 )
 
@@ -19,22 +20,30 @@ func (a *ReportAPI) Register(r *gin.RouterGroup) {
 }
 
 func (a *ReportAPI) CSV(c *gin.Context) {
-	tenant := c.Query("tenant")
+	claims, ok := middleware.ClaimsFrom(c)
+	if !ok || !claims.HasRole("report:read") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
 	rows := [][]string{
 		{"patient_id", "balance_note"},
-		{"P-1001", "=1+1"},
-		{"P-1002", "+12025550123"},
+		{"P-1001", "settled"},
+		{"P-1002", "pending"},
 	}
 	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", "attachment; filename=report.csv")
 	c.Status(http.StatusOK)
-	_ = tenant
 	_ = export.WritePatientFinance(c.Writer, rows)
 }
 
 func (a *ReportAPI) File(c *gin.Context) {
-	tenant := c.Query("tenant")
+	claims, ok := middleware.ClaimsFrom(c)
+	if !ok || !claims.HasRole("report:read") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
 	path := c.Query("path")
-	b, err := a.Files.ReadFile(tenant, path)
+	b, err := a.Files.ReadFile(claims.Tenant, path)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "read_failed"})
 		return
@@ -43,6 +52,11 @@ func (a *ReportAPI) File(c *gin.Context) {
 }
 
 func (a *ReportAPI) Render(c *gin.Context) {
+	claims, ok := middleware.ClaimsFrom(c)
+	if !ok || !claims.HasRole("report:read") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
 	var req reports.RenderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_body"})
@@ -50,8 +64,9 @@ func (a *ReportAPI) Render(c *gin.Context) {
 	}
 	out, err := reports.RenderSummary(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "render_failed"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "render_failed"})
 		return
 	}
+	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.String(http.StatusOK, out)
 }

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/healthops/reporting-service/internal/middleware"
 )
 
 type ExportAPI struct{}
@@ -13,18 +14,19 @@ func (e *ExportAPI) Register(r *gin.RouterGroup) {
 }
 
 func (e *ExportAPI) Operational(c *gin.Context) {
-	_ = c.Query("scope")
+	claims, ok := middleware.ClaimsFrom(c)
+	if !ok || !claims.HasRole("export:ops") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
 	payload := gin.H{
 		"appointments": []gin.H{
-			{"id": "a1", "patient_id": "p1", "internal_notes": "VIP escalation path"},
-			{"id": "a2", "patient_id": "p2", "internal_notes": "standard"},
+			{"id": "a1", "status": "scheduled"},
+			{"id": "a2", "status": "scheduled"},
 		},
 		"billing_events": []gin.H{
-			{"id": "b1", "amount_cents": 250000, "payer": "ACME"},
-			{"id": "b2", "amount_cents": 1200, "payer": "self"},
-		},
-		"staff_directory": []gin.H{
-			{"user": "noc@example.com", "cell": "+12025550199"},
+			{"id": "b1", "amount_cents": 250000},
+			{"id": "b2", "amount_cents": 1200},
 		},
 	}
 	c.JSON(http.StatusOK, payload)
