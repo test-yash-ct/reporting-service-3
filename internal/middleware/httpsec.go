@@ -83,6 +83,15 @@ func CORS(allow []string) gin.HandlerFunc {
 	}
 }
 
+func MaxBodyBytes(max int64) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Body != nil {
+			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, max)
+		}
+		c.Next()
+	}
+}
+
 type windowLimiter struct {
 	mu     sync.Mutex
 	hits   map[string][]time.Time

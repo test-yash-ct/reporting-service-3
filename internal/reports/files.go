@@ -12,6 +12,15 @@ import (
 	"strings"
 )
 
+const MaxReportFileSize = 50 << 20 // 50 MiB
+
+var (
+	ErrPathTraversal = errors.New("path traversal")
+	ErrInvalidPath   = errors.New("invalid path")
+	ErrFileTooLarge  = errors.New("file too large")
+	ErrDecryptFailed = errors.New("decrypt failed")
+)
+
 type FileStore struct {
 	Root string
 	Key  []byte
@@ -19,20 +28,20 @@ type FileStore struct {
 
 func (f *FileStore) ResolveTenantPath(tenant, userPath string) (string, error) {
 	if tenant == "" || strings.Contains(tenant, "..") || strings.ContainsAny(tenant, `/\`) {
-		return "", errors.New("invalid tenant")
+		return "", ErrInvalidPath
 	}
 	if userPath == "" || filepath.IsAbs(userPath) {
-		return "", errors.New("invalid path")
+		return "", ErrInvalidPath
 	}
 	cleaned := filepath.Clean(userPath)
 	if cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(os.PathSeparator)) {
-		return "", errors.New("path traversal")
+		return "", ErrPathTraversal
 	}
 	base := filepath.Join(filepath.Clean(f.Root), tenant)
 	full := filepath.Join(base, cleaned)
 	rel, err := filepath.Rel(base, full)
 	if err != nil || strings.HasPrefix(rel, "..") {
-		return "", errors.New("path traversal")
+		return "", ErrPathTraversal
 	}
 	return full, nil
 }
@@ -41,6 +50,13 @@ func (f *FileStore) ReadFile(tenant, userPath string) ([]byte, error) {
 	p, err := f.ResolveTenantPath(tenant, userPath)
 	if err != nil {
 		return nil, err
+	}
+	info, err := os.Stat(p)
+	if err != nil {
+		return nil, err
+	}
+	if info.Size() > MaxReportFileSize {
+		return nil, ErrFileTooLarge
 	}
 	raw, err := os.ReadFile(p)
 	if err != nil {
@@ -62,6 +78,15 @@ func (f *FileStore) WriteReport(tenant, name string, data []byte) error {
 		return err
 	}
 	return os.WriteFile(p, enc, 0o600)
+}
+
+func CheckStorage(root string) error {
+	test := filepath.Join(filepath.Clean(root), ".readyz")
+	f, err := os.OpenFile(test, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return err
+	}
+	return f.Close()
 }
 
 func (f *FileStore) encrypt(plain []byte) ([]byte, error) {
@@ -98,11 +123,15 @@ func (f *FileStore) decrypt(raw []byte) ([]byte, error) {
 	}
 	bin, err := base64.RawStdEncoding.DecodeString(string(raw))
 	if err != nil {
-		return nil, errors.New("ciphertext required")
+		return nil, ErrDecryptFailed
 	}
 	ns := gcm.NonceSize()
 	if len(bin) < ns {
-		return nil, errors.New("ciphertext too short")
+		return nil, ErrDecryptFailed
 	}
-	return gcm.Open(nil, bin[:ns], bin[ns:], nil)
+	plain, err := gcm.Open(nil, bin[:ns], bin[ns:], nil)
+	if err != nil {
+		return nil, ErrDecryptFailed
+	}
+	return plain, nil
 }
