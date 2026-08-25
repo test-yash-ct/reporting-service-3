@@ -18,7 +18,9 @@ import (
 
 func main() {
 	cfg := config.Load()
-	_ = os.MkdirAll(cfg.ReportRoot, 0o755)
+	if err := os.MkdirAll(cfg.ReportRoot, 0o755); err != nil {
+		log.Fatalf("mkdir report root: %v", err)
+	}
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -46,5 +48,7 @@ func main() {
 	<-sig
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_ = srv.Shutdown(shutdownCtx)
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("shutdown: %v", err)
+	}
 }

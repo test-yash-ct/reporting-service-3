@@ -13,7 +13,6 @@ func (e *ExportAPI) Register(r *gin.RouterGroup) {
 }
 
 func (e *ExportAPI) Operational(c *gin.Context) {
-	_ = c.Query("scope")
 	payload := gin.H{
 		"appointments": []gin.H{
 			{"id": "a1", "patient_id": "p1", "internal_notes": "VIP escalation path"},

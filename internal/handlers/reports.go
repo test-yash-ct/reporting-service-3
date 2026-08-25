@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,16 +20,18 @@ func (a *ReportAPI) Register(r *gin.RouterGroup) {
 }
 
 func (a *ReportAPI) CSV(c *gin.Context) {
-	tenant := c.Query("tenant")
 	rows := [][]string{
 		{"patient_id", "balance_note"},
 		{"P-1001", "=1+1"},
 		{"P-1002", "+12025550123"},
 	}
+	var buf bytes.Buffer
+	if err := export.WritePatientFinance(&buf, rows); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "csv_failed"})
+		return
+	}
 	c.Header("Content-Type", "text/csv")
-	c.Status(http.StatusOK)
-	_ = tenant
-	_ = export.WritePatientFinance(c.Writer, rows)
+	c.Data(http.StatusOK, "text/csv", buf.Bytes())
 }
 
 func (a *ReportAPI) File(c *gin.Context) {
