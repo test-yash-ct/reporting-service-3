@@ -1,5 +1,13 @@
 # Reporting Service API
 
+## Request correlation
+
+Clients may send `X-Request-ID`; the service echoes it on responses and includes `request_id` in structured JSON access logs.
+
+## `GET /meta`
+
+Returns `service`, `version`, `build_time`, and `git_sha` from environment variables.
+
 ## `GET /v1/reports/:name.csv`
 
 Query params: `tenant`, `from`, `to`. Streams a CSV extract.

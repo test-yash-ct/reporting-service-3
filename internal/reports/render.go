@@ -2,8 +2,11 @@ package reports
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"html/template"
+
+	"github.com/healthops/reporting-service/internal/obs"
 )
 
 type RenderRequest struct {
@@ -11,7 +14,8 @@ type RenderRequest struct {
 	Payload  json.RawMessage `json:"payload"`
 }
 
-func RenderSummary(req RenderRequest) (string, error) {
+func RenderSummary(ctx context.Context, req RenderRequest) (string, error) {
+	_ = obs.RequestIDFromContext(ctx)
 	var data map[string]any
 	if err := json.Unmarshal(req.Payload, &data); err != nil {
 		return "", err
