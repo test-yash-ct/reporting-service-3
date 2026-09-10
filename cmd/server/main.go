@@ -12,9 +12,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/healthops/reporting-service/internal/config"
+	"github.com/healthops/reporting-service/internal/events"
 	"github.com/healthops/reporting-service/internal/handlers"
 	"github.com/healthops/reporting-service/internal/obs"
 	"github.com/healthops/reporting-service/internal/reports"
+	"github.com/healthops/reporting-service/internal/service"
 )
 
 func main() {
@@ -37,7 +39,8 @@ func main() {
 	fs := &reports.FileStore{Root: filepath.Clean(cfg.ReportRoot)}
 	v1 := r.Group("/v1")
 	(&handlers.ReportAPI{Files: fs}).Register(v1)
-	(&handlers.ExportAPI{}).Register(v1)
+	exporter := service.NewExporter(events.NewMemory())
+	(&handlers.ExportAPI{Exporter: exporter}).Register(v1)
 
 	srv := &http.Server{Addr: cfg.ListenAddr, Handler: r}
 	go func() {

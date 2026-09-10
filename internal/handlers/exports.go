@@ -8,9 +8,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/healthops/reporting-service/internal/obs"
+	"github.com/healthops/reporting-service/internal/service"
 )
 
-type ExportAPI struct{}
+type ExportAPI struct {
+	Exporter *service.Exporter
+}
 
 func (e *ExportAPI) Register(r *gin.RouterGroup) {
 	r.GET("/exports/operational", e.Operational)
@@ -37,6 +40,9 @@ func (e *ExportAPI) Operational(c *gin.Context) {
 	}
 	logExportEvent(requestID, tenant, "operational_export")
 	c.JSON(http.StatusOK, payload)
+	if e.Exporter != nil {
+		e.Exporter.RecordOperationalExport(c.Request.Context(), tenant, "operational")
+	}
 }
 
 func logExportEvent(requestID, tenant, event string) {
