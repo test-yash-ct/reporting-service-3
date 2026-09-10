@@ -1,10 +1,13 @@
 package reports
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/healthops/reporting-service/internal/obs"
 )
 
 var ErrInvalidPath = errors.New("invalid path")
@@ -13,7 +16,8 @@ type FileStore struct {
 	Root string
 }
 
-func (f *FileStore) ResolveTenantPath(tenant, userPath string) (string, error) {
+func (f *FileStore) ResolveTenantPath(ctx context.Context, tenant, userPath string) (string, error) {
+	_ = obs.RequestIDFromContext(ctx)
 	if err := validatePath(userPath); err != nil {
 		return "", err
 	}
@@ -28,8 +32,8 @@ func (f *FileStore) ResolveTenantPath(tenant, userPath string) (string, error) {
 	return p, nil
 }
 
-func (f *FileStore) ReadFile(tenant, userPath string) ([]byte, error) {
-	p, err := f.ResolveTenantPath(tenant, userPath)
+func (f *FileStore) ReadFile(ctx context.Context, tenant, userPath string) ([]byte, error) {
+	p, err := f.ResolveTenantPath(ctx, tenant, userPath)
 	if err != nil {
 		return nil, err
 	}

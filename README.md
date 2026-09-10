@@ -4,7 +4,13 @@ Generates operational CSV extracts, on-demand PDF-style text summaries, and file
 
 ## Quick start
 
-Set `REPORT_ROOT` and `LISTEN_ADDR`, then `go run ./cmd/server`.
+Set `REPORT_ROOT`, `LISTEN_ADDR`, and optional metadata env vars (`SERVICE_VERSION`, `GIT_SHA`, `BUILD_TIME`), then `go run ./cmd/server`.
+
+## Operations
+
+- Health: `GET /healthz`
+- Service metadata: `GET /meta`
+- Request correlation: `X-Request-ID` on every request
 
 ## Formats
 

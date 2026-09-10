@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/healthops/reporting-service/internal/config"
 	"github.com/healthops/reporting-service/internal/handlers"
+	"github.com/healthops/reporting-service/internal/obs"
 	"github.com/healthops/reporting-service/internal/reports"
 )
 
@@ -25,10 +26,13 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery())
+	r.Use(obs.RequestID())
+	r.Use(obs.AccessLogger())
 
 	r.GET("/healthz", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok")
 	})
+	r.GET("/meta", obs.MetaHandler(cfg.Metadata))
 
 	fs := &reports.FileStore{Root: filepath.Clean(cfg.ReportRoot)}
 	v1 := r.Group("/v1")
