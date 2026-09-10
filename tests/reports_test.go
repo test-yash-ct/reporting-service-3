@@ -9,9 +9,11 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/healthops/reporting-service/internal/events"
 	"github.com/healthops/reporting-service/internal/handlers"
 	"github.com/healthops/reporting-service/internal/obs"
 	"github.com/healthops/reporting-service/internal/reports"
+	"github.com/healthops/reporting-service/internal/service"
 )
 
 func setupRouter() *gin.Engine {
@@ -78,5 +80,43 @@ func TestFileDownloadUsesPathParam(t *testing.T) {
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 got %d", w.Code)
+	}
+}
+
+func TestOperationalExportAppendsReportExported(t *testing.T) {
+	box := events.NewMemory()
+	r := setupRouter()
+	api := &handlers.ExportAPI{Exporter: service.NewExporter(box)}
+	g := r.Group("/v1")
+	api.Register(g)
+	req := httptest.NewRequest(http.MethodGet, "/v1/exports/operational?tenant=acme", nil)
+	req.Header.Set(obs.HeaderRequestID, "report-export-1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d", w.Code)
+	}
+	got := box.Events()
+	if len(got) != 1 {
+		t.Fatalf("want 1 event, got %d", len(got))
+	}
+	ev := got[0]
+	if ev.EventType != events.TypeReportExported {
+		t.Fatalf("type %q", ev.EventType)
+	}
+	if ev.TenantID != "acme" {
+		t.Fatalf("tenant %q", ev.TenantID)
+	}
+	if ev.RequestID != "report-export-1" {
+		t.Fatalf("request_id %q", ev.RequestID)
+	}
+	if ev.Payload["export_id"] != "operational" {
+		t.Fatalf("payload %+v", ev.Payload)
+	}
+	if _, ok := ev.Payload["internal_notes"]; ok {
+		t.Fatal("payload must not include PHI")
+	}
+	if _, ok := ev.Payload["cell"]; ok {
+		t.Fatal("payload must not include staff contact data")
 	}
 }
